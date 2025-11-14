@@ -9,17 +9,17 @@ pipeline {
         APP_NAME = "reddit-clone-pipeline"
         RELEASE = "1.0.0"
         DOCKER_USER = "azizelanbouri"
-        DOCKER_PASS = credentials('dockerhub')  // Use 'dockerhub' ID from your credentials
+        DOCKER_PASS = credentials('dockerhub')
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-        JENKINS_API_TOKEN = credentials('github')  // Use 'github' ID from your credentials
+        JENKINS_API_TOKEN = credentials('github')
     }
     stages {
         stage('Checkout from Git') {
             steps {
                 git branch: 'main', 
                 url: 'https://github.com/azizelanbouri/a-reddit-clone.git',
-                credentialsId: 'github'  // Add credentials for git checkout
+                credentialsId: 'github'
             }
         }
         stage('Install Dependencies') {
@@ -47,6 +47,19 @@ pipeline {
         stage('TRIVY FS SCAN') {
             steps {
                 sh "trivy fs . > trivyfs.txt"
+            }
+        }
+        stage("Build & Push Docker Image") {
+            steps {
+                script {
+                    docker.withRegistry('', DOCKER_PASS) {
+                        docker_image = docker.build "${IMAGE_NAME}"
+                    }
+                    docker.withRegistry('', DOCKER_PASS) {
+                        docker_image.push("${IMAGE_TAG}")
+                        docker_image.push('latest')
+                    }
+                }
             }
         }
         stage('Test Build') {
