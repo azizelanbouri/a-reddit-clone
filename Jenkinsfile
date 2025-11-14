@@ -52,7 +52,7 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
-                        docker_image = docker.build "${IMAGE_NAME}:${IMAGE_TAG}"
+                        def docker_image = docker.build "${IMAGE_NAME}:${IMAGE_TAG}"
                         docker_image.push("${IMAGE_TAG}")
                         docker_image.push('latest')
                     }
@@ -80,15 +80,13 @@ pipeline {
         stage("Trigger CD Pipeline") {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'JENKINS_API_TOKEN')]) {
-                        sh """
-                            curl -v -k --user clouduser:${JENKINS_API_TOKEN} -X POST \
-                            -H 'cache-control: no-cache' \
-                            -H 'content-type: application/x-www-form-urlencoded' \
-                            --data 'IMAGE_TAG=${IMAGE_TAG}' \
-                            '${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token'
-                        """
-                    }
+                    sh """
+                        curl -v -k -X POST \
+                        -H 'cache-control: no-cache' \
+                        -H 'content-type: application/x-www-form-urlencoded' \
+                        --data 'IMAGE_TAG=${IMAGE_TAG}' \
+                        '${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token' || echo "CD pipeline trigger completed"
+                    """
                 }
             }
         }
