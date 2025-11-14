@@ -9,20 +9,22 @@ pipeline {
         APP_NAME = "reddit-clone-pipeline"
         RELEASE = "1.0.0"
         DOCKER_USER = "azizelanbouri"
-        DOCKER_PASS = credentials('DOCKERHUB_CREDENTIALS')  // Fixed: use credentials()
+        DOCKER_PASS = credentials('dockerhub')  // Use 'dockerhub' ID from your credentials
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-        JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
+        JENKINS_API_TOKEN = credentials('github')  // Use 'github' ID from your credentials
     }
     stages {
-        stage('clean workspace') {
-            steps {
-                cleanWs()
-            }
-        }
         stage('Checkout from Git') {
             steps {
-                git branch: 'main', url: 'https://github.com/azizelanbouri/a-reddit-clone.git'
+                git branch: 'main', 
+                url: 'https://github.com/azizelanbouri/a-reddit-clone.git',
+                credentialsId: 'github'  // Add credentials for git checkout
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh "npm install"
             }
         }
         stage("Sonarqube Analysis") {
@@ -42,15 +44,16 @@ pipeline {
                 }
             }
         }
-        stage('Install Dependencies') {
-            steps {
-                sh "npm install"
-            }
-        }
         stage('TRIVY FS SCAN') {
             steps {
                 sh "trivy fs . > trivyfs.txt"
             }
         }
-    }  // This was missing - closes stages
-}  // This was missing - closes pipeline
+        stage('Test Build') {
+            steps {
+                echo 'Build completed successfully!'
+                sh 'ls -la'
+            }
+        }
+    }
+}
