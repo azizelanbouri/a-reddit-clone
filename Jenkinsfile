@@ -11,6 +11,7 @@ pipeline {
         DOCKER_USER = "azizelanbouri"
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
+        CD_PIPELINE_URL = "ec2-65-2-187-142.ap-south-1.compute.amazonaws.com:8080"
     }
     stages {
         stage('Checkout from Git') {
@@ -58,11 +59,65 @@ pipeline {
                 }
             }
         }
-        stage('Test Build') {
+        stage("Trivy Image Scan") {
             steps {
-                echo 'Build completed successfully!'
-                sh 'ls -la'
+                script {
+                    sh "docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table > trivyimage.txt"
+                }
             }
+        }
+        stage('Cleanup Artifacts') {
+            steps {
+                script {
+                    sh """
+                        docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true
+                        docker rmi ${IMAGE_NAME}:latest || true
+                        docker system prune -f || true
+                    """
+                }
+            }
+        }
+        stage("Trigger CD Pipeline") {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'JENKINS_API_TOKEN')]) {
+                        sh """
+                            curl -v -k --user clouduser:${JENKINS_API_TOKEN} -X POST \
+                            -H 'cache-control: no-cache' \
+                            -H 'content-type: application/x-www-form-urlencoded' \
+                            --data 'IMAGE_TAG=${IMAGE_TAG}' \
+                            '${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token'
+                        """
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            emailext (
+                attachLog: true,
+                subject: "Build ${currentBuild.result}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                <h3>Build Notification</h3>
+                <p><strong>Project:</strong> ${env.JOB_NAME}</p>
+                <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+                <p><strong>Build Status:</strong> ${currentBuild.result}</p>
+                <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                <p><strong>Docker Image:</strong> ${IMAGE_NAME}:${IMAGE_TAG}</p>
+                <p><strong>SonarQube Report:</strong> <a href="http://16.16.185.153:9000/dashboard?id=Reddit-Clone-CI">View Analysis</a></p>
+                """,
+                to: 'elanbouriaziz@gmail.com',
+                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
+            )
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+            sh 'docker images | grep ${DOCKER_USER} || echo "No Docker images found"'
+        }
+        failure {
+            echo 'Pipeline failed!'
+            sh 'docker images | grep ${DOCKER_USER} || echo "No Docker images found"'
         }
     }
 }
