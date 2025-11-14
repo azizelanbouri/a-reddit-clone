@@ -11,7 +11,7 @@ pipeline {
         DOCKER_USER = "azizelanbouri"
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-        CD_PIPELINE_URL = "ec2-65-2-187-142.ap-south-1.compute.amazonaws.com:8080"
+        CD_PIPELINE_URL = "16.16.185.153:8080"  // Use current Jenkins
     }
     stages {
         stage('Checkout from Git') {
@@ -85,7 +85,7 @@ pipeline {
                         -H 'cache-control: no-cache' \
                         -H 'content-type: application/x-www-form-urlencoded' \
                         --data 'IMAGE_TAG=${IMAGE_TAG}' \
-                        '${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token' || echo "CD pipeline trigger completed"
+                        'http://${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token' || echo "CD pipeline not found - continuing"
                     """
                 }
             }
@@ -108,14 +108,6 @@ pipeline {
                 to: 'elanbouriaziz@gmail.com',
                 attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
             )
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-            sh 'docker images | grep ${DOCKER_USER} || echo "No Docker images found"'
-        }
-        failure {
-            echo 'Pipeline failed!'
-            sh 'docker images | grep ${DOCKER_USER} || echo "No Docker images found"'
         }
     }
 }
