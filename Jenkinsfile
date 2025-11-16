@@ -11,9 +11,15 @@ pipeline {
         DOCKER_USER = "azizelanbouri"
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-        CD_PIPELINE_URL = "16.16.185.153:8080"  // Use current Jenkins
+        CD_PIPELINE_URL = "ec2-16-16-185-153.eu-north-1.compute.amazonaws.com:8080"
+        JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
     }
     stages {
+        stage('clean workspace') {
+            steps {
+                cleanWs()
+            }
+        }
         stage('Checkout from Git') {
             steps {
                 git branch: 'main', 
@@ -32,7 +38,7 @@ pipeline {
                     sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Reddit-Clone-CI \
                     -Dsonar.projectKey=Reddit-Clone-CI \
                     -Dsonar.sources=. \
-                    -Dsonar.host.url=http://localhost:9000'''
+                    -Dsonar.host.url=http://16.16.185.153:9000'''
                 }
             }
         }
@@ -81,11 +87,12 @@ pipeline {
             steps {
                 script {
                     sh """
-                        curl -v -k -X POST \
+                        curl -v -k --user clouduser:${JENKINS_API_TOKEN} \
+                        -X POST \
                         -H 'cache-control: no-cache' \
                         -H 'content-type: application/x-www-form-urlencoded' \
                         --data 'IMAGE_TAG=${IMAGE_TAG}' \
-                        'http://${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token' || echo "CD pipeline not found - continuing"
+                        'http://${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token'
                     """
                 }
             }
