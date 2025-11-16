@@ -91,7 +91,7 @@ pipeline {
                         -X POST \
                         -H 'cache-control: no-cache' \
                         -H 'content-type: application/x-www-form-urlencoded' \
-                        --data 'IMAGE_TAG=${IMAGE_TAG}' \
+                        --data "IMAGE_TAG=${IMAGE_TAG}" \
                         'http://${CD_PIPELINE_URL}/job/Reddit-Clone-CD/buildWithParameters?token=gitops-token'
                     """
                 }
